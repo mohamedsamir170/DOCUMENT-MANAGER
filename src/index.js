@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { useState } from 'react';
-import { Upload, FolderIcon, TagIcon, LockIcon, X, Trash2, Plus, File, CheckCircle, AlertCircle } from 'lucide-react';
+import { Upload, FolderIcon, TagIcon, LockIcon, X, Trash2, Plus, File, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import App from './App';
 import './index.css';
 
@@ -75,37 +75,51 @@ export default function DocumentManager() {
         </aside>
         
         <main className="main-content">
-          <div className="flex items-center mb-4 text-sm">
-            <button 
-              onClick={() => setCurrentFolder('root')}
-              className="text-primary"
-            >
-              Root
-            </button>
-            
-            {currentFolder !== 'root' && (
-              <>
-                <span className="mx-2">/</span>
-                {parentFolder && parentFolder.id !== 'root' && (
-                  <>
-                    <button 
-                      onClick={() => setCurrentFolder(parentFolder.id)}
-                      className="text-primary"
-                    >
-                      {parentFolder.name}
-                    </button>
-                    <span className="mx-2">/</span>
-                  </>
-                )}
-                <span className="font-medium">
-                  {folders.find(f => f.id === currentFolder)?.name}
-                </span>
-              </>
-            )}
+          <div className="breadcrumb">
+            <div className="breadcrumb-path">
+              <button 
+                onClick={() => setCurrentFolder('root')}
+                className="breadcrumb-item"
+              >
+                Root
+              </button>
+              
+              {currentFolder !== 'root' && (
+                <>
+                  <span className="breadcrumb-separator">/</span>
+                  {parentFolder && parentFolder.id !== 'root' && (
+                    <>
+                      <button 
+                        onClick={() => setCurrentFolder(parentFolder.id)}
+                        className="breadcrumb-item"
+                      >
+                        {parentFolder.name}
+                      </button>
+                      <span className="breadcrumb-separator">/</span>
+                    </>
+                  )}
+                  <span className="breadcrumb-item">
+                    {folders.find(f => f.id === currentFolder)?.name}
+                  </span>
+                </>
+              )}
+            </div>
           </div>
 
           <div className="mb-8">
-            <h2 className="text-lg font-bold mb-4">Current Folder Contents</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-bold">Current Folder Contents</h2>
+              <div className="action-buttons">
+                <button className="action-button primary">
+                  <Plus size={16} />
+                  New Folder
+                </button>
+                <button className="action-button secondary">
+                  <Upload size={16} />
+                  Upload
+                </button>
+              </div>
+            </div>
             
             <div className="document-grid">
               {subFolders.map(folder => (
@@ -114,9 +128,16 @@ export default function DocumentManager() {
                   onClick={() => setCurrentFolder(folder.id)}
                   className="document-card"
                 >
-                  <div className="flex items-center">
-                    <FolderIcon size={24} className="text-warning mr-3" />
-                    <span className="truncate">{folder.name}</span>
+                  <div className="document-card-header">
+                    <div className="document-icon folder">
+                      <FolderIcon size={24} />
+                    </div>
+                    <h3 className="document-title">{folder.name}</h3>
+                  </div>
+                  <div className="document-meta">
+                    <div className="document-date">
+                      Created {new Date().toLocaleDateString()}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -127,26 +148,47 @@ export default function DocumentManager() {
                   onClick={() => setSelectedDocument(doc)}
                   className={`document-card ${selectedDocument?.id === doc.id ? 'selected' : ''}`}
                 >
-                  <div className="flex items-center mb-2">
-                    <File size={24} className="text-primary mr-3" />
-                    <span className="truncate font-medium">{doc.title}</span>
-                  </div>
-                  {doc.tags && doc.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {doc.tags.map(tag => (
-                        <span key={tag} className="text-xs bg-gray-200 px-2 py-1 rounded">
-                          {tag}
-                        </span>
-                      ))}
+                  <div className="document-card-header">
+                    <div className="document-icon file">
+                      <File size={24} />
                     </div>
-                  )}
+                    <h3 className="document-title">{doc.title}</h3>
+                  </div>
+                  <div className="document-meta">
+                    {doc.tags && doc.tags.length > 0 && (
+                      <div className="document-tags">
+                        {doc.tags.map(tag => (
+                          <span key={tag} className="tag">{tag}</span>
+                        ))}
+                      </div>
+                    )}
+                    <div className="document-date">
+                      Uploaded {new Date(doc.uploadDate).toLocaleDateString()}
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
             
             {subFolders.length === 0 && currentDocuments.length === 0 && (
-              <div className="text-center p-8 text-gray-500">
-                This folder is empty.
+              <div className="empty-state">
+                <div className="empty-state-icon">
+                  <FolderIcon size={64} />
+                </div>
+                <h3 className="empty-state-title">This folder is empty</h3>
+                <p className="empty-state-description">
+                  Upload files or create new folders to get started
+                </p>
+                <div className="action-buttons">
+                  <button className="action-button primary">
+                    <Upload size={16} />
+                    Upload Files
+                  </button>
+                  <button className="action-button secondary">
+                    <Plus size={16} />
+                    New Folder
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -209,11 +251,9 @@ export default function DocumentManager() {
               <div>
                 <h4 className="text-sm font-medium text-gray-500">Tags</h4>
                 {selectedDocument.tags && selectedDocument.tags.length > 0 ? (
-                  <div className="flex flex-wrap gap-1 mt-1">
+                  <div className="document-tags">
                     {selectedDocument.tags.map(tag => (
-                      <span key={tag} className="text-xs bg-gray-200 px-2 py-1 rounded">
-                        {tag}
-                      </span>
+                      <span key={tag} className="tag">{tag}</span>
                     ))}
                   </div>
                 ) : (
@@ -233,9 +273,9 @@ export default function DocumentManager() {
               </div>
               
               <div className="pt-4 flex justify-end">
-                <button className="text-error hover:text-error-dark flex items-center">
+                <button className="action-button text-error">
                   <Trash2 size={16} className="mr-1" />
-                  Delete
+                  Delete Document
                 </button>
               </div>
             </div>
@@ -257,7 +297,6 @@ function FileUploadComponent({ documents, setDocuments, currentFolder }) {
   const [validationStatus, setValidationStatus] = useState(null);
   const [uploading, setUploading] = useState(false);
   
-  // Valid file types
   const validFileTypes = ['application/pdf', 'application/msword', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
   const maxSizeInBytes = 10 * 1024 * 1024; // 10MB
   
@@ -266,7 +305,6 @@ function FileUploadComponent({ documents, setDocuments, currentFolder }) {
     setFile(selectedFile);
     
     if (selectedFile) {
-      // Validate file type and size
       const isValidType = validFileTypes.includes(selectedFile.type);
       const isValidSize = selectedFile.size <= maxSizeInBytes;
       
@@ -286,7 +324,6 @@ function FileUploadComponent({ documents, setDocuments, currentFolder }) {
           message: 'File is valid and ready to upload.'
         });
         
-        // Auto-populate title with filename
         setMetadata(prev => ({
           ...prev,
           title: selectedFile.name.split('.')[0]
@@ -312,9 +349,8 @@ function FileUploadComponent({ documents, setDocuments, currentFolder }) {
     
     setUploading(true);
     
-    // Simulate uploading process
+    // Simulate upload process
     setTimeout(() => {
-      // Create a new document entry
       const newDocument = {
         id: `doc-${Date.now()}`,
         title: metadata.title || file.name,
@@ -346,9 +382,9 @@ function FileUploadComponent({ documents, setDocuments, currentFolder }) {
       <h2 className="text-xl font-bold mb-6">Upload Document</h2>
       
       <form onSubmit={handleSubmit} className="max-w-xl">
-        <div className="mb-6">
-          <label className="block mb-2 font-medium">Select File</label>
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+        <div className="form-group">
+          <label className="form-label">Select File</label>
+          <div className="file-upload">
             <input
               type="file"
               id="file-upload"
@@ -356,70 +392,101 @@ function FileUploadComponent({ documents, setDocuments, currentFolder }) {
               className="hidden"
             />
             <label htmlFor="file-upload" className="cursor-pointer">
-              <div className="flex flex-col items-center">
-                <Upload size={32} className="text-gray-400 mb-2" />
-                <span className="text-sm text-gray-500">
-                  {file ? file.name : 'Click to select a file'}
-                </span>
-                <span className="text-xs text-gray-400 mt-1">
-                  Supported formats: PDF, Word, Excel (Max 10MB)
-                </span>
+              <div className="file-upload-icon">
+                <Upload size={32} />
+              </div>
+              <div className="file-upload-text">
+                {file ? file.name : 'Click to select a file'}
+              </div>
+              <div className="file-upload-hint">
+                Supported formats: PDF, Word, Excel (Max 10MB)
               </div>
             </label>
           </div>
           
           {validationStatus && (
-            <div className={`mt-2 text-sm flex items-center ${validationStatus.success ? 'text-success' : 'text-error'}`}>
-              {validationStatus.success ? (
-                <CheckCircle size={16} className="mr-1" />
-              ) : (
-                <AlertCircle size={16} className="mr-1" />
-              )}
+            <div className={`form-hint ${validationStatus.success ? 'text-success' : 'text-error'}`}>
               {validationStatus.message}
             </div>
           )}
         </div>
         
-        <div className="mb-4">
-          <label className="block mb-1 font-medium">Title</label>
+        <div className="form-group">
+          <label htmlFor="title" className="form-label">Title</label>
           <input
             type="text"
+            id="title"
             name="title"
             value={metadata.title}
             onChange={handleInputChange}
+            className="form-input"
             placeholder="Document title"
+            required
           />
         </div>
         
-        <div className="mb-4">
-          <label className="block mb-1 font-medium">Description (optional)</label>
+        <div className="form-group">
+          <label htmlFor="description" className="form-label">Description (optional)</label>
           <textarea
+            id="description"
             name="description"
             value={metadata.description}
             onChange={handleInputChange}
-            rows="3"
+            className="form-input form-textarea"
             placeholder="Add a description for your document"
           ></textarea>
         </div>
         
-        <div className="mb-6">
-          <label className="block mb-1 font-medium">Tags (comma separated)</label>
+        <div className="form-group">
+          <label htmlFor="tags" className="form-label">Tags (comma separated)</label>
           <input
             type="text"
+            id="tags"
             name="tags"
             value={metadata.tags}
             onChange={handleInputChange}
+            className="form-input"
             placeholder="e.g. report, finance, Q1"
           />
+          <div className="form-hint">Separate tags with commas</div>
         </div>
         
-        <button
-          type="submit"
-          disabled={!file || !validationStatus?.success || uploading}
-          className={`primary ${!file || !validationStatus?.success || uploading ? 'loading' : ''}`}
-        >
-          {uploading ? 'Uploading...' : 'Upload Document'}
-        </button>
+        <div className="flex gap-3">
+          <button
+            type="submit"
+            disabled={!file || !validationStatus?.success || uploading}
+            className="button button-primary"
+          >
+            {uploading ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                Uploading...
+              </>
+            ) : (
+              <>
+                <Upload size={16} />
+                Upload Document
+              </>
+            )}
+          </button>
+          
+          <button
+            type="button"
+            onClick={() => {
+              setFile(null);
+              setMetadata({
+                title: '',
+                description: '',
+                tags: ''
+              });
+              setValidationStatus(null);
+            }}
+            className="button button-secondary"
+          >
+            <X size={16} />
+            Clear
+          </button>
+        </div>
       </form>
     </div>
   );
