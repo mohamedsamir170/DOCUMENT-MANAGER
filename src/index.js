@@ -26,62 +26,59 @@ export default function DocumentManager() {
     folders.find(f => f.id === currentFolder)?.parentId);
 
   return (
-    <div className="flex flex-col h-screen">
-      <header className="bg-blue-600 text-white p-4">
-        <h1 className="text-2xl font-bold">Document Manager</h1>
+    <div className="App">
+      <header>
+        <h1>Document Manager</h1>
       </header>
       
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left sidebar for navigation */}
-        <aside className="w-64 bg-gray-100 p-4 overflow-y-auto">
-          <h2 className="font-bold mb-4">Navigation</h2>
-          <ul className="space-y-2">
+      <div className="main-container">
+        <aside className="sidebar">
+          <h2>Navigation</h2>
+          <ul>
             <li>
               <button 
                 onClick={() => setActiveTab('upload')}
-                className={`flex items-center p-2 w-full rounded ${activeTab === 'upload' ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-200'}`}
+                className={activeTab === 'upload' ? 'active' : ''}
               >
-                <Upload size={18} className="mr-2" />
+                <Upload size={18} />
                 Upload Documents
               </button>
             </li>
             <li>
               <button 
                 onClick={() => setActiveTab('folders')}
-                className={`flex items-center p-2 w-full rounded ${activeTab === 'folders' ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-200'}`}
+                className={activeTab === 'folders' ? 'active' : ''}
               >
-                <FolderIcon size={18} className="mr-2" />
+                <FolderIcon size={18} />
                 Folder Management
               </button>
             </li>
             <li>
               <button 
                 onClick={() => setActiveTab('tags')}
-                className={`flex items-center p-2 w-full rounded ${activeTab === 'tags' ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-200'}`}
+                className={activeTab === 'tags' ? 'active' : ''}
               >
-                <TagIcon size={18} className="mr-2" />
+                <TagIcon size={18} />
                 Tagging
               </button>
             </li>
             <li>
               <button 
                 onClick={() => setActiveTab('access')}
-                className={`flex items-center p-2 w-full rounded ${activeTab === 'access' ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-200'}`}
+                className={activeTab === 'access' ? 'active' : ''}
               >
-                <LockIcon size={18} className="mr-2" />
+                <LockIcon size={18} />
                 Access Control
               </button>
             </li>
           </ul>
         </aside>
         
-        {/* Main content area */}
-        <main className="flex-1 p-6 overflow-y-auto bg-white">
-          {/* Breadcrumb navigation */}
+        <main className="main-content">
           <div className="flex items-center mb-4 text-sm">
             <button 
               onClick={() => setCurrentFolder('root')}
-              className="text-blue-600 hover:underline"
+              className="text-primary"
             >
               Root
             </button>
@@ -93,7 +90,7 @@ export default function DocumentManager() {
                   <>
                     <button 
                       onClick={() => setCurrentFolder(parentFolder.id)}
-                      className="text-blue-600 hover:underline"
+                      className="text-primary"
                     >
                       {parentFolder.name}
                     </button>
@@ -107,32 +104,31 @@ export default function DocumentManager() {
             )}
           </div>
 
-          {/* Folder contents */}
           <div className="mb-8">
             <h2 className="text-lg font-bold mb-4">Current Folder Contents</h2>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {/* Display subfolders */}
+            <div className="document-grid">
               {subFolders.map(folder => (
                 <div 
                   key={folder.id}
                   onClick={() => setCurrentFolder(folder.id)}
-                  className="flex items-center p-4 border rounded cursor-pointer hover:bg-gray-50"
+                  className="document-card"
                 >
-                  <FolderIcon size={24} className="text-yellow-500 mr-3" />
-                  <span className="truncate">{folder.name}</span>
+                  <div className="flex items-center">
+                    <FolderIcon size={24} className="text-warning mr-3" />
+                    <span className="truncate">{folder.name}</span>
+                  </div>
                 </div>
               ))}
               
-              {/* Display documents */}
               {currentDocuments.map(doc => (
                 <div 
                   key={doc.id}
                   onClick={() => setSelectedDocument(doc)}
-                  className={`flex flex-col p-4 border rounded cursor-pointer hover:bg-gray-50 ${selectedDocument?.id === doc.id ? 'bg-blue-50 border-blue-200' : ''}`}
+                  className={`document-card ${selectedDocument?.id === doc.id ? 'selected' : ''}`}
                 >
                   <div className="flex items-center mb-2">
-                    <File size={24} className="text-blue-500 mr-3" />
+                    <File size={24} className="text-primary mr-3" />
                     <span className="truncate font-medium">{doc.title}</span>
                   </div>
                   {doc.tags && doc.tags.length > 0 && (
@@ -155,7 +151,6 @@ export default function DocumentManager() {
             )}
           </div>
           
-          {/* Active component based on selected tab */}
           {activeTab === 'upload' && <FileUploadComponent 
             documents={documents}
             setDocuments={setDocuments}
@@ -181,9 +176,8 @@ export default function DocumentManager() {
           />}
         </main>
         
-        {/* Right sidebar for document details when selected */}
         {selectedDocument && (
-          <aside className="w-80 bg-gray-100 p-4 overflow-y-auto">
+          <aside className="sidebar">
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-bold">Document Details</h3>
               <button 
@@ -231,15 +225,15 @@ export default function DocumentManager() {
                 <h4 className="text-sm font-medium text-gray-500">Access</h4>
                 <div className="flex items-center mt-1">
                   <span className={`inline-block w-2 h-2 rounded-full mr-2 ${
-                    selectedDocument.access === 'public' ? 'bg-green-500' : 
-                    selectedDocument.access === 'restricted' ? 'bg-yellow-500' : 'bg-red-500'
+                    selectedDocument.access === 'public' ? 'bg-success' : 
+                    selectedDocument.access === 'restricted' ? 'bg-warning' : 'bg-error'
                   }`}></span>
                   <span className="capitalize">{selectedDocument.access || 'Private'}</span>
                 </div>
               </div>
               
               <div className="pt-4 flex justify-end">
-                <button className="text-red-600 hover:text-red-800 flex items-center">
+                <button className="text-error hover:text-error-dark flex items-center">
                   <Trash2 size={16} className="mr-1" />
                   Delete
                 </button>
@@ -348,7 +342,7 @@ function FileUploadComponent({ documents, setDocuments, currentFolder }) {
   };
   
   return (
-    <div>
+    <div className="fade-in">
       <h2 className="text-xl font-bold mb-6">Upload Document</h2>
       
       <form onSubmit={handleSubmit} className="max-w-xl">
@@ -375,7 +369,7 @@ function FileUploadComponent({ documents, setDocuments, currentFolder }) {
           </div>
           
           {validationStatus && (
-            <div className={`mt-2 text-sm flex items-center ${validationStatus.success ? 'text-green-600' : 'text-red-600'}`}>
+            <div className={`mt-2 text-sm flex items-center ${validationStatus.success ? 'text-success' : 'text-error'}`}>
               {validationStatus.success ? (
                 <CheckCircle size={16} className="mr-1" />
               ) : (
@@ -393,7 +387,6 @@ function FileUploadComponent({ documents, setDocuments, currentFolder }) {
             name="title"
             value={metadata.title}
             onChange={handleInputChange}
-            className="w-full p-2 border rounded"
             placeholder="Document title"
           />
         </div>
@@ -404,7 +397,6 @@ function FileUploadComponent({ documents, setDocuments, currentFolder }) {
             name="description"
             value={metadata.description}
             onChange={handleInputChange}
-            className="w-full p-2 border rounded"
             rows="3"
             placeholder="Add a description for your document"
           ></textarea>
@@ -417,7 +409,6 @@ function FileUploadComponent({ documents, setDocuments, currentFolder }) {
             name="tags"
             value={metadata.tags}
             onChange={handleInputChange}
-            className="w-full p-2 border rounded"
             placeholder="e.g. report, finance, Q1"
           />
         </div>
@@ -425,9 +416,7 @@ function FileUploadComponent({ documents, setDocuments, currentFolder }) {
         <button
           type="submit"
           disabled={!file || !validationStatus?.success || uploading}
-          className={`px-4 py-2 rounded text-white ${
-            !file || !validationStatus?.success || uploading ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'
-          }`}
+          className={`primary ${!file || !validationStatus?.success || uploading ? 'loading' : ''}`}
         >
           {uploading ? 'Uploading...' : 'Upload Document'}
         </button>
