@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Upload, FolderIcon, TagIcon, LockIcon, X, Trash2, Plus, File, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import App from './App';
 import './index.css';
@@ -24,6 +24,69 @@ export default function DocumentManager() {
   // Get parent folder if exists
   const parentFolder = folders.find(folder => folder.id === 
     folders.find(f => f.id === currentFolder)?.parentId);
+
+  // Update selected document when documents change
+  useEffect(() => {
+    if (selectedDocument) {
+      const updatedDoc = documents.find(doc => doc.id === selectedDocument.id);
+      if (updatedDoc) {
+        setSelectedDocument(updatedDoc);
+      }
+    }
+  }, [documents]);
+
+  const handleUploadClick = () => {
+    setActiveTab('upload');
+  };
+
+  const handleNewFolderClick = () => {
+    setActiveTab('folders');
+  };
+
+  const handleDeleteDocument = (documentId) => {
+    const updatedDocuments = documents.filter(doc => doc.id !== documentId);
+    handleDocumentsChange(updatedDocuments);
+    setSelectedDocument(null);
+  };
+  
+  // Custom document setter to also update selected document
+  const handleDocumentsChange = (newDocuments) => {
+    // Ensure newDocuments is an array
+    if (!Array.isArray(newDocuments)) {
+      // If it's a function, call it with the current documents
+      if (typeof newDocuments === 'function') {
+        const updatedDocs = newDocuments(documents);
+        setDocuments(updatedDocs);
+        
+        // Update selected document if needed
+        if (selectedDocument) {
+          const updatedSelectedDoc = updatedDocs.find(
+            doc => doc.id === selectedDocument.id
+          );
+          if (updatedSelectedDoc) {
+            setSelectedDocument(updatedSelectedDoc);
+          }
+        }
+      } else {
+        // Just use setDocuments directly if we received invalid data
+        setDocuments(prev => prev);
+      }
+      return;
+    }
+    
+    // Normal case - newDocuments is already an array
+    setDocuments(newDocuments);
+    
+    // If a document is selected, update the selected document reference
+    if (selectedDocument) {
+      const updatedSelectedDoc = newDocuments.find(
+        doc => doc.id === selectedDocument.id
+      );
+      if (updatedSelectedDoc) {
+        setSelectedDocument(updatedSelectedDoc);
+      }
+    }
+  };
 
   return (
     <div className="App">
@@ -109,16 +172,6 @@ export default function DocumentManager() {
           <div className="mb-8">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-bold">Current Folder Contents</h2>
-              <div className="action-buttons">
-                <button className="action-button primary">
-                  <Plus size={16} />
-                  New Folder
-                </button>
-                <button className="action-button secondary">
-                  <Upload size={16} />
-                  Upload
-                </button>
-              </div>
             </div>
             
             <div className="document-grid">
@@ -179,23 +232,13 @@ export default function DocumentManager() {
                 <p className="empty-state-description">
                   Upload files or create new folders to get started
                 </p>
-                <div className="action-buttons">
-                  <button className="action-button primary">
-                    <Upload size={16} />
-                    Upload Files
-                  </button>
-                  <button className="action-button secondary">
-                    <Plus size={16} />
-                    New Folder
-                  </button>
-                </div>
               </div>
             )}
           </div>
           
           {activeTab === 'upload' && <FileUploadComponent 
             documents={documents}
-            setDocuments={setDocuments}
+            setDocuments={handleDocumentsChange}
             currentFolder={currentFolder}
           />}
           
@@ -207,13 +250,13 @@ export default function DocumentManager() {
           
           {activeTab === 'tags' && <TaggingComponent 
             documents={documents}
-            setDocuments={setDocuments}
+            setDocuments={handleDocumentsChange}
             selectedDocument={selectedDocument}
           />}
           
           {activeTab === 'access' && <AccessControlComponent 
             documents={documents}
-            setDocuments={setDocuments}
+            setDocuments={handleDocumentsChange}
             selectedDocument={selectedDocument}
           />}
         </main>
@@ -273,7 +316,10 @@ export default function DocumentManager() {
               </div>
               
               <div className="pt-4 flex justify-end">
-                <button className="action-button text-error">
+                <button 
+                  className="action-button text-error"
+                  onClick={() => handleDeleteDocument(selectedDocument.id)}
+                >
                   <Trash2 size={16} className="mr-1" />
                   Delete Document
                 </button>
@@ -374,6 +420,9 @@ function FileUploadComponent({ documents, setDocuments, currentFolder }) {
       });
       setValidationStatus(null);
       setUploading(false);
+      
+      // Reset the file input element
+      document.getElementById('file-upload').value = '';
     }, 1500);
   };
   
@@ -495,68 +544,74 @@ function FileUploadComponent({ documents, setDocuments, currentFolder }) {
 // Folder Management Component
 function FolderManagement({ folders, setFolders, currentFolder }) {
   const [newFolderName, setNewFolderName] = useState('');
+  const [localFolders, setLocalFolders] = useState(folders);
+  
+  // Update local folders when props change
+  useEffect(() => {
+    setLocalFolders(folders);
+  }, [folders]);
   
   const handleAddFolder = () => {
     if (!newFolderName.trim()) return;
     
-    // Create new folder
     const newFolder = {
       id: `folder-${Date.now()}`,
       name: newFolderName.trim(),
       parentId: currentFolder
     };
     
-    setFolders(prev => [...prev, newFolder]);
+    const updatedFolders = [...localFolders, newFolder];
+    setLocalFolders(updatedFolders);
+    setFolders(updatedFolders);
     setNewFolderName('');
   };
   
   const handleDeleteFolder = (folderId) => {
-    // Find and delete the folder
-    setFolders(prev => prev.filter(folder => folder.id !== folderId));
+    const updatedFolders = localFolders.filter(folder => folder.id !== folderId);
+    setLocalFolders(updatedFolders);
+    setFolders(updatedFolders);
   };
   
-  // Get subfolders of current folder
-  const subFolders = folders.filter(folder => folder.parentId === currentFolder);
+  const subFolders = localFolders.filter(folder => folder.parentId === currentFolder);
   
   return (
-    <div>
+    <div className="fade-in">
       <h2 className="text-xl font-bold mb-6">Folder Management</h2>
       
-      <div className="mb-6">
-        <div className="flex">
+      <div className="form-group">
+        <label className="form-label">Create New Folder</label>
+        <div className="flex gap-2">
           <input
             type="text"
             value={newFolderName}
             onChange={(e) => setNewFolderName(e.target.value)}
-            className="flex-1 p-2 border rounded-l"
-            placeholder="New folder name"
+            className="form-input"
+            placeholder="Enter folder name"
           />
           <button
             onClick={handleAddFolder}
             disabled={!newFolderName.trim()}
-            className={`px-4 py-2 rounded-r flex items-center ${
-              !newFolderName.trim() ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700 text-white'
-            }`}
+            className="button button-primary"
           >
-            <Plus size={18} className="mr-1" />
+            <Plus size={16} />
             Add Folder
           </button>
         </div>
       </div>
       
-      <div>
-        <h3 className="font-medium mb-3">Subfolders in Current Directory</h3>
+      <div className="mt-6">
+        <h3 className="text-lg font-medium mb-3">Subfolders in Current Directory</h3>
         {subFolders.length > 0 ? (
           <ul className="space-y-2">
             {subFolders.map(folder => (
-              <li key={folder.id} className="flex items-center justify-between p-3 border rounded">
-                <div className="flex items-center">
-                  <FolderIcon size={18} className="text-yellow-500 mr-2" />
+              <li key={folder.id} className="flex items-center justify-between p-3 border rounded-lg bg-white">
+                <div className="flex items-center gap-2">
+                  <FolderIcon size={18} className="text-warning" />
                   <span>{folder.name}</span>
                 </div>
                 <button
                   onClick={() => handleDeleteFolder(folder.id)}
-                  className="text-red-500 hover:text-red-700"
+                  className="text-error hover:text-error-dark"
                 >
                   <Trash2 size={18} />
                 </button>
@@ -574,49 +629,76 @@ function FolderManagement({ folders, setFolders, currentFolder }) {
 // Tagging Component
 function TaggingComponent({ documents, setDocuments, selectedDocument }) {
   const [tag, setTag] = useState('');
+  const [localDocument, setLocalDocument] = useState(selectedDocument);
+  
+  // Update local document when selected document changes
+  useEffect(() => {
+    setLocalDocument(selectedDocument);
+  }, [selectedDocument]);
   
   const handleAddTag = () => {
-    if (!selectedDocument || !tag.trim()) return;
+    if (!localDocument || !tag.trim()) return;
     
     // Add tag to selected document
-    setDocuments(prev => prev.map(doc => {
-      if (doc.id === selectedDocument.id) {
-        const updatedTags = [...(doc.tags || [])];
-        if (!updatedTags.includes(tag.trim())) {
-          updatedTags.push(tag.trim());
-        }
-        return {
-          ...doc,
-          tags: updatedTags
-        };
+    const updatedTags = [...(localDocument.tags || [])];
+    if (!updatedTags.includes(tag.trim())) {
+      updatedTags.push(tag.trim());
+    }
+    
+    // Update both local state and global state
+    const updatedDoc = {
+      ...localDocument,
+      tags: updatedTags
+    };
+    
+    setLocalDocument(updatedDoc);
+    
+    // Create a new array of documents with the updated document
+    const updatedDocuments = documents.map(doc => {
+      if (doc.id === localDocument.id) {
+        return updatedDoc;
       }
       return doc;
-    }));
+    });
+    
+    // Pass the new array to setDocuments
+    setDocuments(updatedDocuments);
     
     setTag('');
   };
   
   const handleRemoveTag = (tagToRemove) => {
-    setDocuments(prev => prev.map(doc => {
-      if (doc.id === selectedDocument.id) {
-        return {
-          ...doc,
-          tags: (doc.tags || []).filter(tag => tag !== tagToRemove)
-        };
+    const updatedTags = (localDocument.tags || []).filter(tag => tag !== tagToRemove);
+    
+    // Update both local state and global state
+    const updatedDoc = {
+      ...localDocument,
+      tags: updatedTags
+    };
+    
+    setLocalDocument(updatedDoc);
+    
+    // Create a new array of documents with the updated document
+    const updatedDocuments = documents.map(doc => {
+      if (doc.id === localDocument.id) {
+        return updatedDoc;
       }
       return doc;
-    }));
+    });
+    
+    // Pass the new array to setDocuments
+    setDocuments(updatedDocuments);
   };
   
   return (
     <div>
       <h2 className="text-xl font-bold mb-6">Document Tagging</h2>
       
-      {selectedDocument ? (
+      {localDocument ? (
         <div>
           <div className="mb-6">
             <h3 className="font-medium mb-2">
-              Add Tags to: <span className="font-bold">{selectedDocument.title}</span>
+              Add Tags to: <span className="font-bold">{localDocument.title}</span>
             </h3>
             
             <div className="flex">
@@ -642,9 +724,9 @@ function TaggingComponent({ documents, setDocuments, selectedDocument }) {
           
           <div>
             <h3 className="font-medium mb-3">Current Tags</h3>
-            {selectedDocument.tags && selectedDocument.tags.length > 0 ? (
+            {localDocument.tags && localDocument.tags.length > 0 ? (
               <div className="flex flex-wrap gap-2">
-                {selectedDocument.tags.map(tag => (
+                {localDocument.tags.map(tag => (
                   <div key={tag} className="flex items-center bg-gray-200 px-3 py-1 rounded">
                     <span className="mr-2">{tag}</span>
                     <button
@@ -680,107 +762,133 @@ function AccessControlComponent({ documents, setDocuments, selectedDocument }) {
   
   const [selectedUser, setSelectedUser] = useState('');
   const [selectedPermission, setSelectedPermission] = useState('view');
+  const [localDocument, setLocalDocument] = useState(selectedDocument);
+  
+  // Update local document when selected document changes
+  useEffect(() => {
+    setLocalDocument(selectedDocument);
+  }, [selectedDocument]);
   
   const handleAddPermission = () => {
-    if (!selectedDocument || !selectedUser) return;
+    if (!localDocument || !selectedUser) return;
     
-    // Add permission to selected document
-    setDocuments(prev => prev.map(doc => {
-      if (doc.id === selectedDocument.id) {
-        const updatedPermissions = [...(doc.permissions || [])];
-        const existingPermIndex = updatedPermissions.findIndex(p => p.userId === selectedUser);
-        
-        if (existingPermIndex >= 0) {
-          updatedPermissions[existingPermIndex].level = selectedPermission;
-        } else {
-          updatedPermissions.push({
-            userId: selectedUser,
-            level: selectedPermission
-          });
-        }
-        
-        return {
-          ...doc,
-          permissions: updatedPermissions
-        };
+    const updatedPermissions = [...(localDocument.permissions || [])];
+    const existingPermIndex = updatedPermissions.findIndex(p => p.userId === selectedUser);
+    
+    if (existingPermIndex >= 0) {
+      updatedPermissions[existingPermIndex].level = selectedPermission;
+    } else {
+      updatedPermissions.push({
+        userId: selectedUser,
+        level: selectedPermission
+      });
+    }
+    
+    // Update both local state and global state
+    const updatedDoc = {
+      ...localDocument,
+      permissions: updatedPermissions
+    };
+    
+    setLocalDocument(updatedDoc);
+    
+    // Create a new array of documents with the updated document
+    const updatedDocuments = documents.map(doc => {
+      if (doc.id === localDocument.id) {
+        return updatedDoc;
       }
       return doc;
-    }));
+    });
+    
+    // Pass the new array to setDocuments
+    setDocuments(updatedDocuments);
+    
+    // Reset selection
+    setSelectedUser('');
+    setSelectedPermission('view');
   };
   
   const handleRemovePermission = (userId) => {
-    setDocuments(prev => prev.map(doc => {
-      if (doc.id === selectedDocument.id) {
-        return {
-          ...doc,
-          permissions: (doc.permissions || []).filter(p => p.userId !== userId)
-        };
+    const updatedPermissions = (localDocument.permissions || []).filter(p => p.userId !== userId);
+    
+    // Update both local state and global state
+    const updatedDoc = {
+      ...localDocument,
+      permissions: updatedPermissions
+    };
+    
+    setLocalDocument(updatedDoc);
+    
+    // Create a new array of documents with the updated document
+    const updatedDocuments = documents.map(doc => {
+      if (doc.id === localDocument.id) {
+        return updatedDoc;
       }
       return doc;
-    }));
+    });
+    
+    // Pass the new array to setDocuments
+    setDocuments(updatedDocuments);
   };
   
   const handleAccessChange = (access) => {
-    setDocuments(prev => prev.map(doc => {
-      if (doc.id === selectedDocument.id) {
-        return {
-          ...doc,
-          access
-        };
+    // Update both local state and global state
+    const updatedDoc = {
+      ...localDocument,
+      access: access
+    };
+    
+    setLocalDocument(updatedDoc);
+    
+    // Create a new array of documents with the updated document
+    const updatedDocuments = documents.map(doc => {
+      if (doc.id === localDocument.id) {
+        return updatedDoc;
       }
       return doc;
-    }));
+    });
+    
+    // Pass the new array to setDocuments
+    setDocuments(updatedDocuments);
   };
   
   return (
-    <div>
+    <div className="fade-in">
       <h2 className="text-xl font-bold mb-6">Access Control</h2>
       
-      {selectedDocument ? (
+      {localDocument ? (
         <div>
-          <div className="mb-6">
-            <h3 className="font-medium mb-3">Document Privacy</h3>
-            <div className="flex space-x-4">
+          <div className="form-group">
+            <label className="form-label">Document Privacy</label>
+            <div className="flex gap-2">
               <button
                 onClick={() => handleAccessChange('private')}
-                className={`px-4 py-2 rounded border ${
-                  selectedDocument.access === 'private' ? 
-                  'bg-red-100 border-red-300 text-red-800' : 
-                  'border-gray-300 hover:bg-gray-50'
-                }`}
+                className={`button ${localDocument.access === 'private' ? 'button-primary' : 'button-secondary'}`}
               >
                 Private
               </button>
               <button
                 onClick={() => handleAccessChange('restricted')}
-                className={`px-4 py-2 rounded border ${
-                  selectedDocument.access === 'restricted' ? 
-                  'bg-yellow-100 border-yellow-300 text-yellow-800' : 
-                  'border-gray-300 hover:bg-gray-50'
-                }`}
+                className={`button ${localDocument.access === 'restricted' ? 'button-primary' : 'button-secondary'}`}
               >
                 Restricted
               </button>
               <button
                 onClick={() => handleAccessChange('public')}
-                className={`px-4 py-2 rounded border ${
-                  selectedDocument.access === 'public' ? 
-                  'bg-green-100 border-green-300 text-green-800' : 
-                  'border-gray-300 hover:bg-gray-50'
-                }`}
+                className={`button ${localDocument.access === 'public' ? 'button-primary' : 'button-secondary'}`}
               >
                 Public
               </button>
             </div>
           </div>
           
-          <div className="mb-6">
-            <h3 className="font-medium mb-3">Assign User Permissions</h3>
-            <div className="flex">
+          <div className="form-group mt-6">
+            <label className="form-label">Assign User Permissions</label>
+            <div className="flex gap-2">
               <select
                 value={selectedUser}
                 onChange={(e) => setSelectedUser(e.target.value)}
-                className="flex-1 p-2 border rounded-l"
+                className="form-input form-select"
               >
                 <option value="">Select a user</option>
                 {users.map(user => (
@@ -790,7 +898,7 @@ function AccessControlComponent({ documents, setDocuments, selectedDocument }) {
               <select
                 value={selectedPermission}
                 onChange={(e) => setSelectedPermission(e.target.value)}
-                className="p-2 border-t border-b"
+                className="form-input form-select"
               >
                 <option value="view">View</option>
                 <option value="edit">Edit</option>
@@ -799,23 +907,21 @@ function AccessControlComponent({ documents, setDocuments, selectedDocument }) {
               <button
                 onClick={handleAddPermission}
                 disabled={!selectedUser}
-                className={`px-4 py-2 rounded-r ${
-                  !selectedUser ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700 text-white'
-                }`}
+                className="button button-primary"
               >
                 Assign
               </button>
             </div>
           </div>
           
-          <div>
-            <h3 className="font-medium mb-3">Current Permissions</h3>
-            {selectedDocument.permissions && selectedDocument.permissions.length > 0 ? (
+          <div className="mt-6">
+            <h3 className="text-lg font-medium mb-3">Current Permissions</h3>
+            {localDocument.permissions && localDocument.permissions.length > 0 ? (
               <ul className="space-y-2">
-                {selectedDocument.permissions.map(permission => {
+                {localDocument.permissions.map(permission => {
                   const user = users.find(u => u.id === permission.userId);
                   return user ? (
-                    <li key={permission.userId} className="flex items-center justify-between p-3 border rounded">
+                    <li key={permission.userId} className="flex items-center justify-between p-3 border rounded-lg bg-white">
                       <div>
                         <span className="font-medium">{user.name}</span>
                         <span className="ml-2 text-sm text-gray-500">
@@ -825,7 +931,7 @@ function AccessControlComponent({ documents, setDocuments, selectedDocument }) {
                       </div>
                       <button
                         onClick={() => handleRemovePermission(permission.userId)}
-                        className="text-red-500 hover:text-red-700"
+                        className="text-error hover:text-error-dark"
                       >
                         <X size={18} />
                       </button>
