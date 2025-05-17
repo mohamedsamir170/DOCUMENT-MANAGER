@@ -342,41 +342,76 @@ function FileUploadComponent({ documents, setDocuments, currentFolder }) {
   });
   const [validationStatus, setValidationStatus] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   
   const validFileTypes = ['application/pdf', 'application/msword', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
   const maxSizeInBytes = 10 * 1024 * 1024; // 10MB
   
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
+    validateAndSetFile(selectedFile);
+  };
+  
+  const validateAndSetFile = (selectedFile) => {
+    if (!selectedFile) {
+      setFile(null);
+      setValidationStatus(null);
+      return;
+    }
+    
     setFile(selectedFile);
     
-    if (selectedFile) {
-      const isValidType = validFileTypes.includes(selectedFile.type);
-      const isValidSize = selectedFile.size <= maxSizeInBytes;
-      
-      if (!isValidType) {
-        setValidationStatus({
-          success: false,
-          message: 'Invalid file type. Please upload PDF, Word, or Excel files.'
-        });
-      } else if (!isValidSize) {
-        setValidationStatus({
-          success: false,
-          message: 'File is too large. Maximum size is 10MB.'
-        });
-      } else {
-        setValidationStatus({
-          success: true,
-          message: 'File is valid and ready to upload.'
-        });
-        
-        setMetadata(prev => ({
-          ...prev,
-          title: selectedFile.name.split('.')[0]
-        }));
-      }
+    const isValidType = validFileTypes.includes(selectedFile.type);
+    const isValidSize = selectedFile.size <= maxSizeInBytes;
+    
+    if (!isValidType) {
+      setValidationStatus({
+        success: false,
+        message: 'Invalid file type. Please upload PDF, Word, or Excel files.'
+      });
+    } else if (!isValidSize) {
+      setValidationStatus({
+        success: false,
+        message: 'File is too large. Maximum size is 10MB.'
+      });
     } else {
-      setValidationStatus(null);
+      setValidationStatus({
+        success: true,
+        message: 'File is valid and ready to upload.'
+      });
+      
+      setMetadata(prev => ({
+        ...prev,
+        title: selectedFile.name.split('.')[0]
+      }));
+    }
+  };
+  
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+  
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+  
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      validateAndSetFile(e.dataTransfer.files[0]);
+      
+      // Update the value of the file input for visual feedback
+      const fileInput = document.getElementById('file-upload');
+      if (fileInput) {
+        // Create a DataTransfer object to update the file input
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(e.dataTransfer.files[0]);
+        fileInput.files = dataTransfer.files;
+      }
     }
   };
   
@@ -397,6 +432,7 @@ function FileUploadComponent({ documents, setDocuments, currentFolder }) {
     
     // Simulate upload process
     setTimeout(() => {
+      // Create a new document
       const newDocument = {
         id: `doc-${Date.now()}`,
         title: metadata.title || file.name,
@@ -433,7 +469,16 @@ function FileUploadComponent({ documents, setDocuments, currentFolder }) {
       <form onSubmit={handleSubmit} className="max-w-xl">
         <div className="form-group">
           <label className="form-label">Select File</label>
-          <div className="file-upload">
+          <div 
+            className={`file-upload 
+              ${isDragging ? 'file-upload-drag' : ''} 
+              ${file && validationStatus?.success ? 'file-upload-has-file' : ''} 
+              ${file && !validationStatus?.success ? 'file-upload-error' : ''}
+            `}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
             <input
               type="file"
               id="file-upload"
@@ -444,12 +489,31 @@ function FileUploadComponent({ documents, setDocuments, currentFolder }) {
               <div className="file-upload-icon">
                 <Upload size={32} />
               </div>
-              <div className="file-upload-text">
-                {file ? file.name : 'Click to select a file'}
-              </div>
-              <div className="file-upload-hint">
-                Supported formats: PDF, Word, Excel (Max 10MB)
-              </div>
+              {file ? (
+                <div className="file-selected">
+                  <div className="file-upload-text">
+                    <strong>{file.name}</strong>
+                  </div>
+                  <div className="file-upload-info">
+                    {(file.size / 1024).toFixed(2)} KB · {file.type.split('/')[1].toUpperCase()}
+                  </div>
+                  {!validationStatus?.success && (
+                    <div className="file-upload-error-message">
+                      <AlertCircle size={16} className="mr-1" />
+                      {validationStatus?.message}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <div className="file-upload-text">
+                    {isDragging ? 'Drop file here' : 'Click or drag file to upload'}
+                  </div>
+                  <div className="file-upload-hint">
+                    Supported formats: PDF, Word, Excel (Max 10MB)
+                  </div>
+                </>
+              )}
             </label>
           </div>
           
@@ -545,6 +609,10 @@ function FileUploadComponent({ documents, setDocuments, currentFolder }) {
 function FolderManagement({ folders, setFolders, currentFolder }) {
   const [newFolderName, setNewFolderName] = useState('');
   const [localFolders, setLocalFolders] = useState(folders);
+  const [folderToDelete, setFolderToDelete] = useState(null);
+  const [folderToEdit, setFolderToEdit] = useState(null);
+  const [editedFolderName, setEditedFolderName] = useState('');
+  const [feedbackMessage, setFeedbackMessage] = useState(null);
   
   // Update local folders when props change
   useEffect(() => {
@@ -564,12 +632,87 @@ function FolderManagement({ folders, setFolders, currentFolder }) {
     setLocalFolders(updatedFolders);
     setFolders(updatedFolders);
     setNewFolderName('');
+    
+    // Show success message
+    setFeedbackMessage({
+      type: 'success',
+      text: `Folder "${newFolderName.trim()}" created successfully!`
+    });
+    
+    // Clear message after 3 seconds
+    setTimeout(() => setFeedbackMessage(null), 3000);
   };
   
-  const handleDeleteFolder = (folderId) => {
-    const updatedFolders = localFolders.filter(folder => folder.id !== folderId);
+  const confirmDeleteFolder = (folderId) => {
+    setFolderToDelete(folderId);
+  };
+  
+  const handleDeleteFolder = () => {
+    if (!folderToDelete) return;
+    
+    const folderName = localFolders.find(f => f.id === folderToDelete)?.name;
+    const updatedFolders = localFolders.filter(folder => folder.id !== folderToDelete);
     setLocalFolders(updatedFolders);
     setFolders(updatedFolders);
+    
+    // Show success message
+    setFeedbackMessage({
+      type: 'success',
+      text: `Folder "${folderName}" deleted successfully!`
+    });
+    
+    // Clear message after 3 seconds
+    setTimeout(() => setFeedbackMessage(null), 3000);
+    
+    // Reset folder to delete
+    setFolderToDelete(null);
+  };
+  
+  const startEditFolder = (folder) => {
+    setFolderToEdit(folder.id);
+    setEditedFolderName(folder.name);
+  };
+  
+  const handleEditFolder = () => {
+    if (!folderToEdit || !editedFolderName.trim()) {
+      setFolderToEdit(null);
+      return;
+    }
+    
+    const oldName = localFolders.find(f => f.id === folderToEdit)?.name;
+    
+    // Update the folder name
+    const updatedFolders = localFolders.map(folder => {
+      if (folder.id === folderToEdit) {
+        return { ...folder, name: editedFolderName.trim() };
+      }
+      return folder;
+    });
+    
+    setLocalFolders(updatedFolders);
+    setFolders(updatedFolders);
+    
+    // Show success message
+    setFeedbackMessage({
+      type: 'success',
+      text: `Folder renamed from "${oldName}" to "${editedFolderName.trim()}"!`
+    });
+    
+    // Clear message after 3 seconds
+    setTimeout(() => setFeedbackMessage(null), 3000);
+    
+    // Reset edit state
+    setFolderToEdit(null);
+    setEditedFolderName('');
+  };
+  
+  const cancelDelete = () => {
+    setFolderToDelete(null);
+  };
+  
+  const cancelEdit = () => {
+    setFolderToEdit(null);
+    setEditedFolderName('');
   };
   
   const subFolders = localFolders.filter(folder => folder.parentId === currentFolder);
@@ -577,6 +720,15 @@ function FolderManagement({ folders, setFolders, currentFolder }) {
   return (
     <div className="fade-in">
       <h2 className="text-xl font-bold mb-6">Folder Management</h2>
+      
+      {feedbackMessage && (
+        <div className={`p-3 rounded mb-4 ${
+          feedbackMessage.type === 'success' ? 'bg-green-100 text-green-800' : 
+          'bg-red-100 text-red-800'
+        }`}>
+          {feedbackMessage.text}
+        </div>
+      )}
       
       <div className="form-group">
         <label className="form-label">Create New Folder</label>
@@ -605,16 +757,53 @@ function FolderManagement({ folders, setFolders, currentFolder }) {
           <ul className="space-y-2">
             {subFolders.map(folder => (
               <li key={folder.id} className="flex items-center justify-between p-3 border rounded-lg bg-white">
-                <div className="flex items-center gap-2">
-                  <FolderIcon size={18} className="text-warning" />
-                  <span>{folder.name}</span>
-                </div>
-                <button
-                  onClick={() => handleDeleteFolder(folder.id)}
-                  className="text-error hover:text-error-dark"
-                >
-                  <Trash2 size={18} />
-                </button>
+                {folderToEdit === folder.id ? (
+                  <div className="flex flex-1 items-center gap-2 mr-2">
+                    <FolderIcon size={18} className="text-warning" />
+                    <input
+                      type="text"
+                      value={editedFolderName}
+                      onChange={(e) => setEditedFolderName(e.target.value)}
+                      className="form-input flex-1"
+                      autoFocus
+                    />
+                    <button
+                      onClick={handleEditFolder}
+                      disabled={!editedFolderName.trim()}
+                      className="text-success hover:text-green-700"
+                    >
+                      <CheckCircle size={18} />
+                    </button>
+                    <button
+                      onClick={cancelEdit}
+                      className="text-gray-500 hover:text-gray-700"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <FolderIcon size={18} className="text-warning" />
+                    <span>{folder.name}</span>
+                  </div>
+                )}
+                
+                {folderToEdit !== folder.id && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => startEditFolder(folder)}
+                      className="text-blue-600 hover:text-blue-800"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => confirmDeleteFolder(folder.id)}
+                      className="text-error hover:text-error-dark"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                )}
               </li>
             ))}
           </ul>
@@ -622,6 +811,32 @@ function FolderManagement({ folders, setFolders, currentFolder }) {
           <p className="text-gray-500">No subfolders in this directory.</p>
         )}
       </div>
+      
+      {folderToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-lg font-bold mb-3">Delete Folder</h3>
+            <p className="mb-4">
+              Are you sure you want to delete this folder? 
+              This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button 
+                onClick={cancelDelete}
+                className="button button-secondary"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleDeleteFolder} 
+                className="button button-danger"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -630,6 +845,8 @@ function FolderManagement({ folders, setFolders, currentFolder }) {
 function TaggingComponent({ documents, setDocuments, selectedDocument }) {
   const [tag, setTag] = useState('');
   const [localDocument, setLocalDocument] = useState(selectedDocument);
+  const [editingTag, setEditingTag] = useState(null);
+  const [editedTagName, setEditedTagName] = useState('');
   
   // Update local document when selected document changes
   useEffect(() => {
@@ -690,6 +907,64 @@ function TaggingComponent({ documents, setDocuments, selectedDocument }) {
     setDocuments(updatedDocuments);
   };
   
+  const startEditingTag = (tagToEdit) => {
+    setEditingTag(tagToEdit);
+    setEditedTagName(tagToEdit);
+  };
+  
+  const handleEditTag = () => {
+    if (!editingTag || !editedTagName.trim()) {
+      setEditingTag(null);
+      return;
+    }
+    
+    // Find the index of the tag to edit
+    const tagIndex = localDocument.tags.findIndex(tag => tag === editingTag);
+    if (tagIndex === -1) {
+      setEditingTag(null);
+      return;
+    }
+    
+    // Check if the new tag name already exists
+    if (editingTag !== editedTagName.trim() && 
+        localDocument.tags.includes(editedTagName.trim())) {
+      alert('This tag already exists');
+      return;
+    }
+    
+    // Create a new array with the updated tag
+    const updatedTags = [...localDocument.tags];
+    updatedTags[tagIndex] = editedTagName.trim();
+    
+    // Update both local state and global state
+    const updatedDoc = {
+      ...localDocument,
+      tags: updatedTags
+    };
+    
+    setLocalDocument(updatedDoc);
+    
+    // Create a new array of documents with the updated document
+    const updatedDocuments = documents.map(doc => {
+      if (doc.id === localDocument.id) {
+        return updatedDoc;
+      }
+      return doc;
+    });
+    
+    // Pass the new array to setDocuments
+    setDocuments(updatedDocuments);
+    
+    // Reset edit state
+    setEditingTag(null);
+    setEditedTagName('');
+  };
+  
+  const cancelEditTag = () => {
+    setEditingTag(null);
+    setEditedTagName('');
+  };
+  
   return (
     <div>
       <h2 className="text-xl font-bold mb-6">Document Tagging</h2>
@@ -727,14 +1002,55 @@ function TaggingComponent({ documents, setDocuments, selectedDocument }) {
             {localDocument.tags && localDocument.tags.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {localDocument.tags.map(tag => (
-                  <div key={tag} className="flex items-center bg-gray-200 px-3 py-1 rounded">
-                    <span className="mr-2">{tag}</span>
-                    <button
-                      onClick={() => handleRemoveTag(tag)}
-                      className="text-gray-500 hover:text-red-600"
-                    >
-                      <X size={14} />
-                    </button>
+                  <div key={tag} className={`tag-item ${editingTag === tag ? 'editing' : ''}`}>
+                    {editingTag === tag ? (
+                      <div className="tag-edit-form">
+                        <input
+                          type="text"
+                          value={editedTagName}
+                          onChange={(e) => setEditedTagName(e.target.value)}
+                          className="tag-edit-input"
+                          autoFocus
+                          onKeyDown={(e) => e.key === 'Enter' && handleEditTag()}
+                        />
+                        <div className="tag-actions">
+                          <button
+                            onClick={handleEditTag}
+                            className="tag-btn save"
+                            title="Save changes"
+                          >
+                            <CheckCircle size={14} />
+                          </button>
+                          <button
+                            onClick={cancelEditTag}
+                            className="tag-btn cancel"
+                            title="Cancel editing"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <span className="tag-text">{tag}</span>
+                        <div className="tag-actions">
+                          <button
+                            onClick={() => startEditingTag(tag)}
+                            className="tag-btn edit"
+                            title="Edit tag"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleRemoveTag(tag)}
+                            className="tag-btn delete"
+                            title="Delete tag"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>
