@@ -20,7 +20,7 @@ A modern React application for managing, organizing, and controlling access to y
 
 1. Clone the repository
 ```bash
-git clone <repository-url>
+git clone https://github.com/mohamedsamir170/DOCUMENT-MANAGER.git
 cd erp-task
 ```
 
