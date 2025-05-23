@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/document-manager/static/css/main.a901525c.css",
+    "main.js": "/document-manager/static/js/main.c1c59260.js",
+    "index.html": "/document-manager/index.html",
+    "main.a901525c.css.map": "/document-manager/static/css/main.a901525c.css.map",
+    "main.c1c59260.js.map": "/document-manager/static/js/main.c1c59260.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.a901525c.css",
+    "static/js/main.c1c59260.js"
+  ]
+}
